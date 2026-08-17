@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Woo Hierarchical Category Menu
  * Description: Adds movable, dynamic WooCommerce category items to WordPress menus and provides a hierarchical category shortcode.
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: WBL
  * License: GPL-2.0-or-later
  * Text Domain: woo-hierarchical-category-menu
@@ -46,7 +46,7 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 	}
 
 	public function render_menu_meta_box(): void {
-		$shortcode = '[' . self::SHORTCODE . ' depth="0" hide_empty="1"]';
+		$shortcode = '[' . self::SHORTCODE . ' depth="0" hide_empty="1" hide_label="0" name_case="title"]';
 		?>
 		<div id="posttype-wbl-whcm" class="posttypediv">
 			<div class="tabs-panel tabs-panel-active">
@@ -60,7 +60,7 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 					<input type="hidden" name="menu-item[-9999][menu-item-url]" value="<?php echo esc_attr( self::MARKER_URL ); ?>">
 					<input type="hidden" name="menu-item[-9999][menu-item-object]" value="custom">
 				</li></ul>
-				<p class="description"><?php esc_html_e( 'Attributes: depth, parent, hide_empty, orderby, order, include, exclude, show_count.', 'woo-hierarchical-category-menu' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Attributes: depth, parent, hide_empty, hide_label, name_case, orderby, order, include, exclude, show_count.', 'woo-hierarchical-category-menu' ); ?></p>
 			</div>
 			<p class="button-controls wp-clearfix"><span class="add-to-menu">
 				<input type="submit" class="button-secondary submit-add-to-menu right" value="<?php esc_attr_e( 'Add to Menu', 'woo-hierarchical-category-menu' ); ?>" name="add-post-type-menu-item" id="submit-posttype-wbl-whcm"><span class="spinner"></span>
@@ -96,12 +96,20 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 	public function expand_menu_items( array $items, $args ): array {
 		$expanded = array();
 		foreach ( $items as $item ) {
-			$expanded[] = $item;
-			if ( $this->is_placeholder( $item ) ) {
-				$shortcode = get_post_meta( $item->ID, self::SHORTCODE_META, true );
-				foreach ( $this->category_menu_items( $this->parse_shortcode_attributes( $shortcode ), (int) $item->ID ) as $category_item ) {
-					$expanded[] = $category_item;
-				}
+			if ( ! $this->is_placeholder( $item ) ) {
+				$expanded[] = $item;
+				continue;
+			}
+
+			$shortcode = get_post_meta( $item->ID, self::SHORTCODE_META, true );
+			$attributes = $this->parse_shortcode_attributes( $shortcode );
+			if ( ! $attributes['hide_label'] ) {
+				$expanded[] = $item;
+			}
+
+			$top_parent = $attributes['hide_label'] ? (int) $item->menu_item_parent : (int) $item->ID;
+			foreach ( $this->category_menu_items( $attributes, (int) $item->ID, $top_parent ) as $category_item ) {
+				$expanded[] = $category_item;
 			}
 		}
 		return $expanded;
@@ -123,14 +131,18 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 
 	private function attributes( array $attributes ): array {
 		$attributes = shortcode_atts( array(
-			'depth' => 0, 'parent' => 0, 'hide_empty' => 1, 'orderby' => 'name',
-			'order' => 'ASC', 'include' => '', 'exclude' => '', 'show_count' => 0,
+			'depth' => 0, 'parent' => 0, 'hide_empty' => 1, 'hide_label' => 0,
+			'name_case' => 'title', 'orderby' => 'name', 'order' => 'ASC',
+			'include' => '', 'exclude' => '', 'show_count' => 0,
 		), $attributes, self::SHORTCODE );
 		$allowed_orderby = array( 'name', 'slug', 'term_id', 'count', 'menu_order' );
+		$allowed_name_case = array( 'original', 'title', 'sentence', 'lower', 'upper' );
 		$attributes['depth'] = max( 0, absint( $attributes['depth'] ) );
 		$attributes['parent'] = absint( $attributes['parent'] );
 		$attributes['hide_empty'] = $this->boolean( $attributes['hide_empty'] );
+		$attributes['hide_label'] = $this->boolean( $attributes['hide_label'] );
 		$attributes['show_count'] = $this->boolean( $attributes['show_count'] );
+		$attributes['name_case'] = in_array( strtolower( $attributes['name_case'] ), $allowed_name_case, true ) ? strtolower( $attributes['name_case'] ) : 'title';
 		$attributes['orderby'] = in_array( $attributes['orderby'], $allowed_orderby, true ) ? $attributes['orderby'] : 'name';
 		$attributes['order'] = 'DESC' === strtoupper( $attributes['order'] ) ? 'DESC' : 'ASC';
 		$attributes['include'] = implode( ',', wp_parse_id_list( $attributes['include'] ) );
@@ -140,6 +152,28 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 
 	private function boolean( $value ): bool {
 		return in_array( strtolower( (string) $value ), array( '1', 'true', 'yes', 'on' ), true );
+	}
+
+	private function format_name( string $name, string $case ): string {
+		if ( 'original' === $case ) {
+			return $name;
+		}
+
+		$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $name, 'UTF-8' ) : strtolower( $name );
+		if ( 'lower' === $case ) {
+			return $lower;
+		}
+		if ( 'upper' === $case ) {
+			return function_exists( 'mb_strtoupper' ) ? mb_strtoupper( $name, 'UTF-8' ) : strtoupper( $name );
+		}
+		if ( 'sentence' === $case ) {
+			if ( function_exists( 'mb_substr' ) && function_exists( 'mb_strtoupper' ) ) {
+				return mb_strtoupper( mb_substr( $lower, 0, 1, 'UTF-8' ), 'UTF-8' ) . mb_substr( $lower, 1, mb_strlen( $lower, 'UTF-8' ), 'UTF-8' );
+			}
+			return ucfirst( $lower );
+		}
+
+		return function_exists( 'mb_convert_case' ) ? mb_convert_case( $lower, MB_CASE_TITLE, 'UTF-8' ) : ucwords( $lower );
 	}
 
 	private function get_categories( array $attributes ): array {
@@ -176,14 +210,14 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 		return $result;
 	}
 
-	private function category_menu_items( array $attributes, int $placeholder_id ): array {
+	private function category_menu_items( array $attributes, int $placeholder_id, int $top_parent ): array {
 		$items = array();
 		$ids = array();
 		foreach ( $this->get_categories( $attributes ) as $entry ) {
 			$term = $entry['term'];
 			$id = -1 * ( ( $placeholder_id * 1000000 ) + (int) $term->term_id );
 			$ids[ (int) $term->term_id ] = $id;
-			$parent_id = (int) $term->parent === (int) $attributes['parent'] ? $placeholder_id : ( $ids[ (int) $term->parent ] ?? $placeholder_id );
+			$parent_id = (int) $term->parent === (int) $attributes['parent'] ? $top_parent : ( $ids[ (int) $term->parent ] ?? $top_parent );
 			$url = get_term_link( $term );
 			$item = new stdClass();
 			$item->ID = $id;
@@ -193,7 +227,7 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 			$item->object = 'product_cat';
 			$item->type = 'taxonomy';
 			$item->type_label = __( 'Product category', 'woo-hierarchical-category-menu' );
-			$item->title = $term->name . ( $attributes['show_count'] ? ' (' . (int) $term->count . ')' : '' );
+			$item->title = $this->format_name( $term->name, $attributes['name_case'] ) . ( $attributes['show_count'] ? ' (' . (int) $term->count . ')' : '' );
 			$item->url = is_wp_error( $url ) ? '#' : $url;
 			$item->target = '';
 			$item->attr_title = '';
@@ -225,7 +259,7 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 			}
 			$term = $entry['term'];
 			$url = get_term_link( $term );
-			$title = esc_html( $term->name );
+			$title = esc_html( $this->format_name( $term->name, $attributes['name_case'] ) );
 			$title .= $attributes['show_count'] ? ' <span class="count">(' . (int) $term->count . ')</span>' : '';
 			$output .= '<li class="product-cat-item product-cat-item-' . (int) $term->term_id . '"><a href="' . esc_url( is_wp_error( $url ) ? '#' : $url ) . '">' . $title . '</a>';
 			$level = $current;

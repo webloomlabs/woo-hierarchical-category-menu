@@ -3,7 +3,7 @@ Contributors: wbl
 Tags: woocommerce, menu, categories, hierarchy, shortcode
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.0.0
+Stable tag: 2.1.0
 License: GPLv2 or later
 
 Insert an automatically generated WooCommerce category tree anywhere in a WordPress menu or page.
@@ -14,19 +14,21 @@ Under Appearance > Menus, open "Woo Category Shortcode", add its item, then drag
 
 The shortcode also works in posts, pages, widgets, and builders:
 
-`[woo_category_menu depth="2" hide_empty="1"]`
+`[woo_category_menu depth="2" hide_empty="1" hide_label="1" name_case="title"]`
 
 Attributes:
 
 * `depth` - Maximum levels; 0 is unlimited.
 * `parent` - Children of this product category term ID; 0 starts at the top.
 * `hide_empty` - 1 hides categories without products; 0 shows them.
+* `hide_label` - 1 hides the placeholder navigation label and attaches categories directly to its parent.
+* `name_case` - original, title, sentence, lower, or upper. This changes display only.
 * `orderby` - name, slug, term_id, count, or menu_order.
 * `order` - ASC or DESC.
 * `include` and `exclude` - Comma-separated category IDs.
 * `show_count` - 1 displays product counts.
 
-Example: `[woo_category_menu parent="25" depth="3" hide_empty="0" orderby="menu_order" show_count="1"]`
+Example: `[woo_category_menu parent="25" depth="3" hide_empty="0" hide_label="1" name_case="title" orderby="menu_order" show_count="1"]`
 
 == Installation ==
 
@@ -36,6 +38,10 @@ Example: `[woo_category_menu parent="25" depth="3" hide_empty="0" orderby="menu_
 4. Drag it under the desired parent item and save the menu.
 
 == Changelog ==
+
+= 2.1.0 =
+
+* Added optional placeholder-label hiding and category-name case normalization.
 
 = 2.0.0 =
 
