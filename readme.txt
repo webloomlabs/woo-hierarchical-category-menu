@@ -3,7 +3,7 @@ Contributors: wbl
 Tags: woocommerce, menu, categories, hierarchy, shortcode
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.1.0
+Stable tag: 2.1.1
 License: GPLv2 or later
 
 Insert an automatically generated WooCommerce category tree anywhere in a WordPress menu or page.
@@ -38,6 +38,10 @@ Example: `[woo_category_menu parent="25" depth="3" hide_empty="0" hide_label="1"
 4. Drag it under the desired parent item and save the menu.
 
 == Changelog ==
+
+= 2.1.1 =
+
+* Fixed double-encoded special characters such as `&amp;` in category names.
 
 = 2.1.0 =
 

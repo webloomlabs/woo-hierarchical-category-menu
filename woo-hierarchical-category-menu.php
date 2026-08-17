@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Woo Hierarchical Category Menu
  * Description: Adds movable, dynamic WooCommerce category items to WordPress menus and provides a hierarchical category shortcode.
- * Version: 2.1.0
+ * Version: 2.1.1
  * Author: WBL
  * License: GPL-2.0-or-later
  * Text Domain: woo-hierarchical-category-menu
@@ -155,6 +155,11 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 	}
 
 	private function format_name( string $name, string $case ): string {
+		// Term names may already contain entities (for example "&amp;"). Decode
+		// before changing case; each output context escapes the result once.
+		$charset = get_bloginfo( 'charset' ) ?: 'UTF-8';
+		$name = html_entity_decode( $name, ENT_QUOTES | ENT_HTML5, $charset );
+
 		if ( 'original' === $case ) {
 			return $name;
 		}
@@ -227,7 +232,7 @@ final class WBL_Woo_Hierarchical_Category_Menu {
 			$item->object = 'product_cat';
 			$item->type = 'taxonomy';
 			$item->type_label = __( 'Product category', 'woo-hierarchical-category-menu' );
-			$item->title = $this->format_name( $term->name, $attributes['name_case'] ) . ( $attributes['show_count'] ? ' (' . (int) $term->count . ')' : '' );
+			$item->title = esc_html( $this->format_name( $term->name, $attributes['name_case'] ) ) . ( $attributes['show_count'] ? ' (' . (int) $term->count . ')' : '' );
 			$item->url = is_wp_error( $url ) ? '#' : $url;
 			$item->target = '';
 			$item->attr_title = '';
